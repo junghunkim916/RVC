@@ -37,7 +37,7 @@ void stop();
 void cleaningPower(char* power);
 
 // 메인 컨트롤러
-void Controller();
+void Controller(char inputLines[][5], int numLines);
 void* powerUp(void* arg);
 //output Interface
 void motorInterface(char* motorCommand);
@@ -48,34 +48,38 @@ void clearBuffer() {
     while ((c = getchar()) != '\n' && c != EOF); // 버퍼에 남아 있는 데이터 제거
 }
 
-int main() {
-    Controller(); // Controller 호출 
+int main(int argc, char* argv[]) {
+
+    char inputLines[100][5]; // 최대 100줄의 입력값 저장
+    int numLines = 0;
+    printf("Input lines in the format\n(front sensor input, left sensor input, right sensor input, dust sensor input), each represented by T or F (end with 'END'):\n");
+    while (1) {
+        char buffer[10];
+        fgets(buffer, sizeof(buffer), stdin);
+        if (strncmp(buffer, "END", 3) == 0) break; // "STOP"이 입력되면 종료
+
+        if (sscanf(buffer, "%s %s %s %s", 
+                   inputLines[numLines], inputLines[numLines] + 1, 
+                   inputLines[numLines] + 2, inputLines[numLines] + 3) == 4) {
+            numLines++;
+        }
+    }
+    Controller(inputLines, numLines); // Controller 호출 
     return 0;
 }
 
-void Controller() {
-
+void Controller(char inputLines[][5], int numLines) {
     Power = "ON"; // 초기 상태는 "ON"
     cleaningPower(Power);
     moveForward(); // 초기 상태는 전진
 
-    while (1) { // 무한 루프
-        // 사용자 입력을 통해 센서 값 설정
-        printf("Enter Front Sensor (0 or 1): ");
-        scanf("%d", (int*)&frontSensorValue); // 값을 0 또는 1로 입력받아 설정
-        clearBuffer(); // 버퍼 비우기
-
-        printf("Enter Left Sensor (0 or 1): ");
-        scanf("%d", (int*)&leftSensorValue);
-        clearBuffer(); // 버퍼 비우기
-
-        printf("Enter Right Sensor (0 or 1): ");
-        scanf("%d", (int*)&rightSensorValue);
-        clearBuffer(); // 버퍼 비우기
-
-        printf("Enter Dust Sensor (0 or 1): ");
-        scanf("%d", (int*)&dustSensorValue);
-        clearBuffer(); // 버퍼 비우기
+    for (int i = 0; i < numLines; i++) { // 입력된 각 줄을 한 번씩 처리
+        printf("Tick\n");
+        // 현재 줄의 데이터를 센서 값으로 설정
+        frontSensorValue = (inputLines[i][0] == 'T');
+        leftSensorValue = (inputLines[i][1] == 'T');
+        rightSensorValue = (inputLines[i][2] == 'T');
+        dustSensorValue = (inputLines[i][3] == 'T');
 
         // 장애물 감지
         Obstacle obstacleDetected = determineObstacleLocation();
@@ -100,17 +104,17 @@ void Controller() {
             }
         } else {
             if (!F) {
-                if(!Dust && (strcmp(Power, "UP") == 0)) {
+                if (!Dust && (strcmp(Power, "UP") == 0)) {
                     printf("Dust Cleared\n");
                     Power = "ON";
-                    cleaningPower(Power); //다시 돌아올 때 power on이 2번이 출력됨. 걍 냅둘지 말지...
+                    cleaningPower(Power);
                 }
 
                 Power = "ON";
                 cleaningPower(Power);
                 moveForward();
 
-                if(Dust && (strcmp(Power, "ON") == 0)) {
+                if (Dust && (strcmp(Power, "ON") == 0)) {
                     printf("Dust Detected\n");
                     Power = "UP";
                     cleaningPower(Power);
@@ -130,7 +134,6 @@ void Controller() {
                     stop();
                 }
             }
-            
         }
 
         sleep(1); // 1초 대기
